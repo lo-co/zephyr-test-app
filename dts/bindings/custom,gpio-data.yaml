@@ -1,0 +1,15 @@
+description: Simple single-line data
+
+compatible: "custom,gpio-data"
+
+properties:
+  gpios:
+    type: phandle-array
+    required: true
+    description: |
+      The GPIO connected to the gate data line.
+  label:
+    type: string
+    required: false
+    description: |
+      Description of data line

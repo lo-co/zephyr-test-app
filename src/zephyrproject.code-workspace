@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "../.."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			".als.json": "jsonc",
+			"kernel.h": "c",
+			"gpio.h": "c",
+			"thread_stack.h": "c",
+			"log.h": "c",
+			"button.h": "c"
+		}
+	}
+}
