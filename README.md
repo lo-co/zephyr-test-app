@@ -1,3 +1,4 @@
+Install in zephyr project directory.
 
 To build: 
 
