@@ -6,15 +6,15 @@
  *
  */
 
- #include <zephyr/kernel.h>
+#include <zephyr/kernel.h>
 
- #pragma once
+#pragma once
 
 /*******************************************************************************
  * Definitions
  ******************************************************************************/
 
-#define NO_EVENT        0x0
+#define NO_EVENT 0x0
 #define EVENT_BUTTON_1S 0x1
 /*******************************************************************************
  * Type Definitions
@@ -26,6 +26,6 @@
 
 void event_module_init();
 
-struct k_event * const event_module_get_event_object();
+struct k_event *const event_module_get_event_object();
 
 uint32_t event_module_wait_on_event(uint32_t wait_ms);

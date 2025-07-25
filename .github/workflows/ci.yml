@@ -1,0 +1,38 @@
+name: Zephyr CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y cmake ninja-build gperf ccache dfu-util \
+             device-tree-compiler wget python3-pip python3-setuptools python3-wheel xz-utils file \
+             make gcc g++ python3-dev
+        pip3 install west
+
+    - name: Init west & update
+      run: |
+        west init -l .
+        west update
+        west zephyr-export
+        pip3 install -r zephyr/scripts/requirements.txt
+
+    - name: Build for nucleo_f767zi
+      run: |
+        west build -b nucleo_f767zi -p
+
+    - name: Format check
+      run: |
+        cp zephyr/.clang-format .
+        find . -name '*.[ch]' | xargs clang-format --dry-run --Werror
+

@@ -1,6 +1,6 @@
 / {
     dht11_sensor: dht11_0 {
-        compatible = "custom,gpio-data";      // optional or custom
+        compatible = "custom,gpio-data"; 
         gpios = <&gpioc 0 GPIO_ACTIVE_HIGH>;
         label = "DHT11 Data";
     };

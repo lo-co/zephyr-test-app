@@ -12,7 +12,7 @@
  * Definitions
  ******************************************************************************/
 
- /*******************************************************************************
+/*******************************************************************************
  * Type Definitions
  ******************************************************************************/
 
@@ -20,28 +20,20 @@
  * Function Prototypes
  ******************************************************************************/
 
- /*******************************************************************************
+/*******************************************************************************
  * Variables
  ******************************************************************************/
 
- static struct k_event event_obj;
+static struct k_event event_obj;
 
- /*******************************************************************************
+/*******************************************************************************
  * Function Definitions
  ******************************************************************************/
 
- void event_module_init()
- {
-    k_event_init(&event_obj);
- }
+void event_module_init() { k_event_init(&event_obj); }
 
- struct k_event * const event_module_get_event_object()
- {
-    return &event_obj;
- }
+struct k_event *const event_module_get_event_object() { return &event_obj; }
 
- uint32_t event_module_wait_on_event(uint32_t wait_ms)
- {
-    return k_event_wait(&event_obj, 0xFFF, false, K_MSEC(wait_ms));
-
- }
+uint32_t event_module_wait_on_event(uint32_t wait_ms) {
+  return k_event_wait(&event_obj, 0xFFF, false, K_MSEC(wait_ms));
+}
