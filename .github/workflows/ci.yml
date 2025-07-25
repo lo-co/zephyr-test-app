@@ -7,38 +7,56 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env: 
+      WORKSPACE_DIR: $HOME/zephyrproject
 
     steps:
+    - name: Create workspace directory
+      run: mkdir -p $WORKSPACE_DIR
+
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        path: ${{ env.WORKSPACE_DIR }}/zephyr-test-app
 
     - name: Install dependencies
       run: |
         sudo apt update
         sudo apt install --no-install-recommends git cmake ninja-build gperf \
           ccache dfu-util device-tree-compiler wget python3-dev python3-venv python3-tk \
-          xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1
+          xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1 \
+          clang-format
+
+    - name: Create venv and install west
+      working-directory: ${{ env.WORKSPACE_DIR }}
+      run: |
         python3 -m venv venv
         source venv/bin/activate
-        pip3 install west
+        pip install west
+        deactivate
 
     - name: Install Zephyr and Python dependencies
+      working-directory: ${{ env.WORKSPACE_DIR }}
       run: |
-        west init ~/zephyrproject
-        cd ~/zephyrproject
+        source venv/bin/activate
+        west init .
         west update
         west zephyr-export
         west packages pip --install
         cd zephyr
         west sdk install
+        deactivate
 
     - name: Build for nucleo_f767zi
+      working-directory: ${{ env.WORKSPACE_DIR }}
       run: |
-        cd ~/zephyrproject
+        source venv/bin/activate
         west build zephyr-test-app -b nucleo_f767zi -p
+        deactivate
 
     - name: Format check
+      working-directory: ${{ env.WORKSPACE_DIR }}
       run: |
-        cp zephyr/.clang-format .
+        cd zephyr-test-app
         find . -name '*.[ch]' | xargs clang-format --dry-run --Werror
 
