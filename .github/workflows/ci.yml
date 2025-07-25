@@ -8,7 +8,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env: 
-      WORKSPACE_DIR: $HOME/zephyrproject
+      WORKSPACE_DIR:/home/runner/work/zephyrproject
 
     steps:
     - name: Create workspace directory
@@ -39,7 +39,7 @@ jobs:
       working-directory: ${{ env.WORKSPACE_DIR }}
       run: |
         source venv/bin/activate
-        west init .
+        west init $WORKSPACE_DIR
         west update
         west zephyr-export
         west packages pip --install
