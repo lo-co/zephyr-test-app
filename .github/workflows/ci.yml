@@ -8,7 +8,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env: 
-      WORKSPACE_DIR: /home/runner/work/zephyrproject
+      WORKSPACE_DIR: $HOME/zephyrproject
 
     steps:
     - name: Create workspace directory
