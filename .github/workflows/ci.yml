@@ -7,10 +7,11 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env: 
-      WORKSPACE_DIR: ${{ env.HOME }}/zephyrproject
 
     steps:
+    - name: Set WORKSPACE_DIR dynamically
+      run: echo "WORKSPACE_DIR=$HOME/zephyrproject" >> $GITHUB_ENV
+
     - name: Create workspace directory
       run: mkdir -p $WORKSPACE_DIR
 
