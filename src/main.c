@@ -25,7 +25,7 @@ LOG_MODULE_REGISTER(main_app, 3);
 /** DHT11 stack size (1 kB) */
 #define STACK_SIZE 1024
 
-/* 1000 msec = 1 sec */
+/* 500 msec */
 #define SLEEP_TIME_MS 500
 
 /* The devicetree node identifier for the "led0" alias. */

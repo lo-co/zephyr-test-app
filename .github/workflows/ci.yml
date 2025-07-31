@@ -54,6 +54,18 @@ jobs:
         west build zephyr-test-app -b nucleo_f767zi -p
         deactivate
 
+    - name: Zip build output
+      working-directory: ${{ env.WORKSPACE_DIR }}/build
+      run: |
+        zip -r zephyr_build_artifacts.zip zephyr
+
+    - name: Upload zipped build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: firmware-zip
+        path: ${{ env.WORKSPACE_DIR }}/build/zephyr_build_artifacts.zip
+
+
     - name: Format check
       working-directory: ${{ env.WORKSPACE_DIR }}
       run: |
