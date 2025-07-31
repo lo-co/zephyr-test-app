@@ -23,8 +23,8 @@ The wiring for the sensor is simple. The peripheral has three pins for powering 
 |    3      |  NC       |                    |                        |
 |    4      |  GND      |                    | Ground for the DHT11   |
 
-The data is shipped using a simple protocol - the master (in this case the dev board) will toggle the line and low for 
-> 17 ms and then release it.  This indicates to the sensor that the master is ready for data.  The sensor will respond, 
+The data is shipped using a simple protocol - the master (in this case the dev board) will toggle the line and low for > 17 ms 
+and then release it.  This indicates to the sensor that the master is ready for data.  The sensor will respond, 
 toggling the line twice to say it is preparing to send data.  After this, the senso will toggle the line for a fixed period -
 30 us will indicate a 0 while 70 us will indicate a 1.  The sensor will ship 5 bytes as indicated in the following table:
 
