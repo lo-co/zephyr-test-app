@@ -1,6 +1,6 @@
 ## Zephyr Test Application
 
-This is a simple test of building the Zephyr RToS for a [STM32 Nucleo F767ZI]{https://www.st.com/en/evaluation-tools/nucleo-f767zi.html}. It was initially based off of the blinky example provided by Zephyr, but has been expanded to 
+This is a simple test of building the Zephyr RToS for a [STM32 Nucleo F767ZI](https://www.st.com/en/evaluation-tools/nucleo-f767zi.html). It was initially based off of the blinky example provided by Zephyr, but has been expanded to 
 flex functionality.  It is being used for demonstration and learning purposes at the moment.
 
 ### Hardware Setup
