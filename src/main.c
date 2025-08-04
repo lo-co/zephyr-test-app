@@ -7,10 +7,10 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/kernel.h>
 #include <zephyr/kernel/thread_stack.h>
-#include <zephyr/logging/log.h>
 
 #include <stdbool.h>
 
+#include <common.h>
 #include <dht11.h>
 #include <event_module.h>
 
@@ -25,7 +25,7 @@ LOG_MODULE_REGISTER(main_app, 3);
 /** DHT11 stack size (1 kB) */
 #define STACK_SIZE 1024
 
-/* 500 msec */
+/* Time to sleep in ms before toggling the green LED */
 #define SLEEP_TIME_MS 500
 
 /* The devicetree node identifier for the "led0" alias. */
@@ -83,22 +83,22 @@ int main(void) {
   button_module_init();
 
   if (!gpio_is_ready_dt(&red_led)) {
-    LOG_ERR("LED GPIO is not ready");
+    COMMON_LOG_ERR("LED GPIO is not ready");
     return -1;
   }
 
   if (!gpio_is_ready_dt(&green_led)) {
-    LOG_ERR("LED GPIO is not ready");
+    COMMON_LOG_ERR("LED GPIO is not ready");
     return -1;
   }
 
   if (gpio_pin_configure_dt(&red_led, GPIO_OUTPUT_ACTIVE)) {
-    LOG_ERR("Unable to configure pin");
+    COMMON_LOG_ERR("Unable to configure pin");
     return -1;
   }
 
   if (gpio_pin_configure_dt(&green_led, GPIO_OUTPUT_ACTIVE)) {
-    LOG_ERR("Unable to configure pin");
+    COMMON_LOG_ERR("Unable to configure pin");
     return -1;
   }
 
@@ -125,20 +125,20 @@ int main(void) {
 
 // Described above
 static void dht11_thread_start(void *arg1, void *arg2, void *arg3) {
-  LOG_INF("Starting DHT11 thread.");
+  COMMON_LOG_INF("Starting DHT11 thread.");
 
-  if (dht11_init()) {
-    LOG_ERR("DHT11 initialization failed.");
+  if (dht11_init(false)) {
+    COMMON_LOG_ERR("DHT11 initialization failed.");
   }
   k_msleep(1000);
 
   while (1) {
     dht11_data_t data;
-    dht11_error_t err = dht11_get_data(&data);
+    dht11_error_t err = dht11_get_data(NULL, &data);
     if (err) {
-      LOG_ERR("Error retrieving DHT11 data. Err=%d", err);
+      COMMON_LOG_ERR("Error retrieving DHT11 data. Err=%d", err);
     }
-    LOG_INF("RH=%d, T=%d, parity=%d", data.rh_high, data.t_high, data.parity);
+    COMMON_LOG_INF("RH=%d, T=%d, parity=%d", data.rh_high, data.t_high, data.parity);
     k_msleep(3000);
   }
 }

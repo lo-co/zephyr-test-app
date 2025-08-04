@@ -58,8 +58,16 @@ typedef enum dht11_error_e {
   DHT11_ERROR_CONFIG_FAILURE,
   DHT11_ERROR_SETUP_FAILED,
   DHT11_ERROR_PARITY_CHECK_FAILED,
+  DHT11_ERROR_HARDWARE_UNAVAILABLE,
   DHT11_ERROR_MAX
 } dht11_error_t;
+
+/** Typedef for a function that encapsulates the non-ISR based hardware
+ * data-capture logic.
+ *
+ * This function pointer is provided for mocking purposes.
+ */
+typedef dht11_error_t (*dht11_retrieve_data_t)(uint8_t *const bit_array);
 
 /*******************************************************************************
  * Variables Declarations
@@ -72,14 +80,19 @@ typedef enum dht11_error_e {
 /**
  * @brief Initialize the DHT11 for operation
  *
+ * @param is_int Boolean indicating this will use an interrupt to decode the
+ * GPIO
+ *
  * @return DHT11_ERROR_NONE on success
  * @return DHT11_ERROR_CONFIG_FAILURE when fail to get ready value
  */
-dht11_error_t dht11_init();
+dht11_error_t dht11_init(bool is_int);
 
 /**
  * @brief Retrieve the DHT11 serial data
  *
+ * @param hw_fp Function pointer to function to be used for retrieving data from
+ * the DHT-11.  Set to NULL for the standard case.
  * @param data Pointer to struct to store DHT11 data
  *
  * @return DHT11_ERROR_NONE on success
@@ -88,4 +101,4 @@ dht11_error_t dht11_init();
  * @return DHT11_ERROR_PARITY_CHECK_FAILED if parity byte indicates data
  * corruption.
  */
-dht11_error_t dht11_get_data(dht11_data_t *data);
+dht11_error_t dht11_get_data(dht11_retrieve_data_t hw_fp, dht11_data_t *data);

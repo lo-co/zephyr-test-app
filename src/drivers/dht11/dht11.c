@@ -10,8 +10,9 @@
  */
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/kernel.h>
-#include <zephyr/logging/log.h>
+#include <zephyr/kernel/thread_stack.h>
 
+#include <common.h>
 #include <dht11.h>
 
 LOG_MODULE_REGISTER(dht11, 3);
@@ -59,14 +60,17 @@ LOG_MODULE_REGISTER(dht11, 3);
 /** Start index in bit array for the parity byte */
 #define DHT11_PARITY_BYTE 32
 
+/** Stack size for the dht11 thread */
+#define STACK_SIZE 128
+
 /*******************************************************************************
  * Type Definitions
  ******************************************************************************/
 
 typedef struct pulse_data_s {
-  uint8_t level;
-  uint32_t start_time;
   bool new_bit;
+  uint32_t start_time;
+  uint32_t end_time;
 } pulse_data_t;
 
 /*******************************************************************************
@@ -89,6 +93,27 @@ static uint8_t pack_bits(uint8_t *bit_array, uint8_t start_index);
 static void gpio_cb(const struct device *dev, struct gpio_callback *cb,
                     uint32_t pins);
 
+/** Function implementing hardware specific details for retrieving data off of
+ * the DHT-11
+ *
+ * @param bit_array Constant pointer to data to be retrieved from the DHT-11
+ *
+ * @returns DHT11_ERROR_NONE Success
+ * @returns DHT11_ERROR_SETUP_FAILED Failed to get correct response from DHT11
+ * at start of conversion
+ * @returns DHT11_ERROR_CONFIG_FAILURE Failed to properly configure GPIO
+ */
+dht11_error_t retrieve_data(uint8_t *const bit_array);
+
+/**
+ * @brief DHT11 polling thread
+ *
+ * @param arg1 UNUSED
+ * @param arg2 UNUSED
+ * @param arg3 UNUSED
+ */
+static void conversion_thread(void *arg1, void *arg2, void *arg3);
+
 /*******************************************************************************
  * Variables
  ******************************************************************************/
@@ -101,24 +126,38 @@ static struct gpio_callback dht11_cb_data;
 
 static pulse_data_t pulse_data[90];
 
-static uint32_t pulse_width[40];
-
 static uint8_t current_pulse = 0;
 
 static bool conversion_started = false;
 
-static uint32_t start_time = 0;
+/** Define a memory region for the DHT11 thread stack */
+K_THREAD_STACK_DEFINE(conversion_stack, STACK_SIZE);
+
+static struct k_thread conversion_thread_id;
+
+static struct k_sem conversion_sem;
+
 /*******************************************************************************
  * Function Definitions
  ******************************************************************************/
 
 // Described in .h
-dht11_error_t dht11_init() {
+dht11_error_t dht11_init(bool is_int) {
   if (!gpio_is_ready_dt(&dht11_gpio)) {
     return DHT11_ERROR_CONFIG_FAILURE;
   }
-  gpio_init_callback(&dht11_cb_data, gpio_cb, BIT(dht11_gpio.pin));
-  gpio_add_callback_dt(&dht11_gpio, &dht11_cb_data);
+
+  if (is_int) {
+    gpio_init_callback(&dht11_cb_data, gpio_cb, BIT(dht11_gpio.pin));
+    gpio_add_callback_dt(&dht11_gpio, &dht11_cb_data);
+
+    // Binary semaphore to indicate when conversion has begun
+    k_sem_init(&conversion_sem, 0, 1);
+
+    k_thread_create(&conversion_thread_id, conversion_stack,
+                    K_THREAD_STACK_SIZEOF(conversion_stack), conversion_thread,
+                    NULL, NULL, NULL, 7, 0, K_NO_WAIT);
+  }
 
   return DHT11_ERROR_NONE;
 }
@@ -127,6 +166,11 @@ dht11_error_t dht11_start_data_conversion() {
   // MCU is master - toggle the line to indicate MCU is ready for transmission
   if (gpio_pin_configure_dt(&dht11_gpio, GPIO_OUTPUT) < 0) {
     return DHT11_ERROR_CONFIG_FAILURE;
+  }
+
+  // Wait 100 ms for the semaphore
+  if (!k_sem_take(&conversion_sem, K_MSEC(100))) {
+    return DHT11_ERROR_HARDWARE_UNAVAILABLE;
   }
 
   gpio_pin_set_dt(&dht11_gpio, 0);
@@ -146,14 +190,67 @@ dht11_error_t dht11_start_data_conversion() {
 }
 
 // Described in .h
-dht11_error_t dht11_get_data(dht11_data_t *data) {
+dht11_error_t dht11_get_data(dht11_retrieve_data_t hw_fp, dht11_data_t *data) {
+
+  /* Storage for the bit data from the DHT11 */
+  uint8_t bit_array[40];
+
   // Make sure this value is 0'ed
   data->rh_high = 0;
   data->rh_low = 0;
   data->t_high = 0;
   data->t_low = 0;
 
-  // MCU is master - toggle the line to indicate MCU is ready for transmission
+  if (!hw_fp) {
+    // Standard case - call the function defined in this module
+    retrieve_data(bit_array);
+  } else {
+    hw_fp(bit_array);
+  }
+
+  data->rh_high = pack_bits(bit_array, DHT11_RH_BYTE_MAJOR);
+  data->rh_low = pack_bits(bit_array, DHT11_RH_BYTE_MINOR);
+  data->t_high = pack_bits(bit_array, DHT11_T_BYTE_MAJOR);
+  data->t_low = pack_bits(bit_array, DHT11_T_BYTE_MINOR);
+  data->parity = pack_bits(bit_array, DHT11_PARITY_BYTE);
+
+  uint8_t parity_byte =
+      data->rh_high + data->rh_low + data->t_high + data->t_low;
+
+  // Check the parity byte
+  if (data->parity != parity_byte) {
+    return DHT11_ERROR_PARITY_CHECK_FAILED;
+  }
+
+  return DHT11_ERROR_NONE;
+}
+
+// Described above
+uint8_t pack_bits(uint8_t *bit_array, uint8_t start_index) {
+  uint8_t packed_data = 0;
+  uint8_t upper_bound = start_index + 8;
+
+  for (uint8_t idx = start_index; idx < upper_bound; idx++) {
+    packed_data |= (bit_array[idx] << ((upper_bound - 1) - idx));
+  }
+  return packed_data;
+}
+
+// Described above
+static void gpio_cb(const struct device *dev, struct gpio_callback *cb,
+                    uint32_t pins) {
+  conversion_started = true;
+  uint8_t level = gpio_pin_get_dt(&dht11_gpio);
+  if (level) {
+    pulse_data[current_pulse].start_time = k_cycle_get_32();
+  } else {
+    pulse_data[current_pulse++].new_bit = true;
+    pulse_data[current_pulse].end_time = k_cycle_get_32();
+  }
+}
+
+// Described above
+dht11_error_t retrieve_data(uint8_t *const bit_array) {
   if (gpio_pin_configure_dt(&dht11_gpio, GPIO_OUTPUT) < 0) {
     return DHT11_ERROR_CONFIG_FAILURE;
   }
@@ -209,12 +306,9 @@ dht11_error_t dht11_get_data(dht11_data_t *data) {
   uint32_t duration = k_cyc_to_us_ceil32(k_cycle_get_32() - pstart);
 
   if (duration < DHT11_DATA_SETUP_US) {
-    LOG_ERR("Duration check failed: %d", duration);
+    COMMON_LOG_ERR("Duration check failed: %d", duration);
     return DHT11_ERROR_SETUP_FAILED;
   }
-
-  /* Storage for the bit data from the DHT11 */
-  uint8_t bit_array[40];
 
   // Start retrieving data
   for (uint8_t bit = 0; bit < NUM_DATA_BITS; bit++) {
@@ -238,38 +332,24 @@ dht11_error_t dht11_get_data(dht11_data_t *data) {
   // Release the lock, we have finished probing the data line
   irq_unlock(key);
 
-  data->rh_high = pack_bits(bit_array, DHT11_RH_BYTE_MAJOR);
-  data->rh_low = pack_bits(bit_array, DHT11_RH_BYTE_MINOR);
-  data->t_high = pack_bits(bit_array, DHT11_T_BYTE_MAJOR);
-  data->t_low = pack_bits(bit_array, DHT11_T_BYTE_MINOR);
-  data->parity = pack_bits(bit_array, DHT11_PARITY_BYTE);
-
-  uint8_t parity_byte =
-      data->rh_high + data->rh_low + data->t_high + data->t_low;
-
-  // Check the parity byte
-  if (data->parity != parity_byte) {
-    return DHT11_ERROR_PARITY_CHECK_FAILED;
-  }
-
   return DHT11_ERROR_NONE;
 }
 
-// Described above
-static uint8_t pack_bits(uint8_t *bit_array, uint8_t start_index) {
-  uint8_t packed_data = 0;
-  uint8_t upper_bound = start_index + 8;
+static void conversion_thread(void *arg1, void *arg2, void *arg3) {
+  while (1) {
+    k_sem_take(&conversion_sem, K_FOREVER);
 
-  for (uint8_t idx = start_index; idx < upper_bound; idx++) {
-    packed_data |= (bit_array[idx] << ((upper_bound - 1) - idx));
+    uint8_t current_bit = 0;
+    // uint8_t bit_array[40];
+
+    while (conversion_started) {
+      if (pulse_data[current_bit].new_bit) {
+        if (0 == current_bit)
+
+          current_bit++;
+      }
+
+      conversion_started = false;
+    }
   }
-  return packed_data;
-}
-
-static void gpio_cb(const struct device *dev, struct gpio_callback *cb,
-                    uint32_t pins) {
-  conversion_started = true;
-  pulse_data[current_pulse].level = gpio_pin_get_dt(&dht11_gpio);
-  pulse_data[current_pulse].start_time = k_cycle_get_32();
-  pulse_data[current_pulse++].new_bit = true;
 }

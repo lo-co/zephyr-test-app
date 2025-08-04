@@ -9,3 +9,4 @@ target_sources(app PRIVATE src/main.c)
 add_subdirectory(src/drivers)
 add_subdirectory(src/components)
 
+target_include_directories(app PRIVATE ${CMAKE_CURRENT_LIST_DIR}/include)

@@ -3,6 +3,27 @@
 This is a simple test of building the Zephyr RToS for a [STM32 Nucleo F767ZI](https://www.st.com/en/evaluation-tools/nucleo-f767zi.html). It was initially based off of the blinky example provided by Zephyr, but has been expanded to 
 flex functionality.  It is being used for demonstration and learning purposes at the moment.
 
+This architecture of this application is defined as a [Zephyr Workspace Application](https://docs.zephyrproject.org/latest/develop/application/index.html#zephyr-workspace-application).  In this case, the Zephyr application is located _alongside_ the Zephyr repository and the west configuration in a Zephyr Project directory.  The directory structure looks like:
+
+```
+zephyrproject
+├── bootloader
+├── build
+├── modules
+├── tools
+├── zephyr
+└── zephyr-test-app
+    ├── boards
+    ├── CMakeLists.txt
+    ├── docs
+    ├── dts
+    ├── prj.conf
+    ├── README.md
+    ├── src
+    ├── tests
+    └── VERSION
+```
+
 ### Hardware Setup
 
 ### LEDs 
@@ -55,6 +76,15 @@ To flash
 ```
 west flash
 ```
+
+This requires the STM32 CubeMX CLI Programmer which can be found [here](https://www.st.com/en/development-tools/stm32cubeprog.html). In linux,
+make sure to provide access to this tool via the command line by creating a symbolic link:
+
+```
+sudo ln -s /usr/local/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI /usr/bin/STM32_Programmer_CLI
+```
+
+where the target is the path to the executable.
 
 ### Formatting
 
